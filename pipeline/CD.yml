@@ -1,0 +1,49 @@
+
+variables:
+  # Agent VM image name
+  vmImageName: 'ubuntu-latest'
+
+
+stages:
+- stage: 
+  displayName: Download and Deploy Helm
+  jobs:
+  - job: 
+    displayName: downloading
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: DownloadBuildArtifacts@1
+      inputs:
+        buildType: 'specific'
+        project: '6b096e79-3325-455b-931c-42470fd79415'
+        pipeline: '9'
+        specificBuildWithTriggering: true
+        buildVersionToDownload: 'latest'
+        downloadType: 'single'
+        artifactName: 'identity-drop'
+        downloadPath: '$(System.ArtifactsDirectory)'
+        cleanDestinationFolder: true
+      
+    - task: HelmInstaller@0
+      inputs:
+        helmVersion: '3.10.3'
+        installKubectl: true
+    - task: HelmDeploy@0
+      inputs:
+        connectionType: 'Azure Resource Manager'
+        azureSubscription: 'k8-dev'
+        azureResourceGroup: 'kubernetes-rg'
+        kubernetesCluster: 'MyKuberbetesCluster'
+        useClusterAdmin: true
+        namespace: 'dev'
+        command: 'upgrade'
+        chartType: 'FilePath'
+        chartPath: '$(System.ArtifactsDirectory)/identity-drop'
+        releaseName: 'identity-release'
+        valueFile: '$(System.ArtifactsDirectory)/identity-drop/values.yaml'
+    
+
+
+
+

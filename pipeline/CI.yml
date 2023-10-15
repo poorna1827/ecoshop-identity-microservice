@@ -1,0 +1,89 @@
+# Docker
+# Build and push an image to Azure Container Registry
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  # Container registry service connection established during pipeline creation
+  dockerRegistryServiceConnection: 'ff39d14e-6690-4ad5-b8a2-aaa86cae0bf9'
+  imageRepository: 'identitymicroservice'
+  containerRegistry: 'azuresolutionregistry.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/src/Dockerfile'
+  tag: '$(Build.BuildId)'
+  helmChartPath : '$(Build.SourcesDirectory)/identity-helm'
+
+  # Agent VM image name
+  vmImageName: 'ubuntu-latest'
+
+stages:
+- stage:
+  displayName: Unit Tests
+  jobs:
+  - job: 
+    displayName: performing unit tests
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: DotNetCoreCLI@2
+      inputs:
+        command: 'test'
+        projects: '**/tests.csproj'
+        publishTestResults: false
+    
+
+
+- stage: 
+  displayName: Build Image
+  jobs:
+  - job:
+    displayName: building the image
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+
+
+- stage:
+  displayName: Update Helm Chart
+  jobs:
+  - job: 
+    displayName: Updating the new image tag
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: replacetokens@5
+      inputs:
+        rootDirectory: '$(helmChartPath)'
+        targetFiles: '**/values.yaml'
+        encoding: 'auto'
+        tokenPattern: 'doublebraces'
+        writeBOM: true
+        actionOnMissing: 'warn'
+        keepToken: false
+        actionOnNoFiles: 'continue'
+        enableTransforms: false
+        enableRecursion: false
+        useLegacyPattern: false
+        enableTelemetry: true
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(helmChartPath)'
+        ArtifactName: 'identity-drop'
+        publishLocation: 'Container'
+      
+    
+

@@ -1,0 +1,12 @@
+namespace: dev
+
+replicaCount: 2
+appName: identity
+containerName: identity
+
+serviceName: identity-service
+serviceType: ClusterIP
+
+image:
+  name: azuresolutionregistry.azurecr.io/identitymicroservice
+  tag: {{tag}}
